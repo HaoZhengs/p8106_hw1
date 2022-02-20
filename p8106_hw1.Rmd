@@ -1,0 +1,11 @@
+---
+title: "p8106_hw1"
+author: "Hao Zheng"
+date: "2/20/2022"
+output: pdf_document
+---
+
+```{r}
+
+```
+
