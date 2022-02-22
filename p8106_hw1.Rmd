@@ -6,6 +6,116 @@ output: pdf_document
 ---
 
 ```{r}
+library(tidyverse)
+library(ISLR)
+library(glmnet)
+library(caret)
+library(corrplot)
+library(plotmo)
+library(pls)
+```
+
+```{r}
+# Data import
+train = read.csv("./data/housing_training.csv") %>% janitor::clean_names()
+test = read.csv("./data/housing_test.csv") %>% janitor::clean_names()
+
+train = na.omit(train)
+test = na.omit(test)
+```
+
+
+Now, let's fit different models based on the dataset.
+
+## Linear model
+```{r}
+set.seed(2022)
+
+fit.lm = lm(sale_price ~ .,
+            data = train,
+            method = "lm",
+            trControl = trainControl(method = "repeatedcv", number = 10))
+summary(fit.lm)
+
+pred.lm <- predict(fit.lm, newdata = test)
+RMSE(pred.lm, test$sale_price)
+```
+
+Potential advantage of the linear model is there may exist correlation which may disturb the model.
+
+
+## Lasso model
+### using glmnet
+```{r}
+set.seed(2022)
+
+x_train = model.matrix(sale_price~., train)[,-1]
+y_train = train$sale_price
+
+cv.lasso <- cv.glmnet(
+  x = x_train,
+  y = y_train,
+  alpha = 1,
+  lambda = exp(seq(8, -1, length = 100))
+)
+
+plot(cv.lasso)
+
+# Look at the 1SE coefficient for lasso
+predict(cv.lasso, s = "lambda.min",type = "coefficients")
+```
+
+When the 1SE rule is applied, we can see there are 35 predictors included in the model.
+
+```{r}
+x_test <- model.matrix(sale_price~., test)[ ,-1]
+y_test <- test$sale_price
+
+y_pred <- predict(cv.lasso, newx = x_test, s = "lambda.min", type = "response")
+lasso_mse <- mean(RMSE(y_pred, y_test)^2); lasso_mse
+```
+
+The test MSE for Lasso model (1SE) is 439963234.
+
+
+## Elastic Net model
+```{r}
+set.seed(2022)
+
+enet.fit = train(x_train, y_train,
+                 method = "glmnet",
+                 tuneGrid = expand.grid(alpha = seq(0, 1, length = 21),
+                                        lambda = exp(seq(8, -3, length = 50))),
+                 trControl = trainControl(method = "cv", number = 10))
+
+enet.fit$bestTune
+
+# Visualization
+myCol <- rainbow(25)
+myPar <- list(superpose.symbol = list(col = myCol),
+              superpose.line = list(col = myCol))
+
+plot(enet.fit, par.settings = myPar)
+
+coef(enet.fit$finalModel, enet.fit$bestTune$lambda)
+```
+
+```{r}
+# Elastic net test MSE
+enet_pred <- predict(enet.fit, newdata = x_test)
+enet_mse <- mean(RMSE(enet_pred, y_test)^2); enet_mse
+```
+
+The test error for Elastics net model is `enet_mse`.
+
+## Partial Least Square model
+```{r}
+
+```
+
+
+## Comparing different models
+```{r}
 
 ```
 
