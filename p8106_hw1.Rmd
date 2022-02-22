@@ -75,7 +75,7 @@ y_pred <- predict(cv.lasso, newx = x_test, s = "lambda.min", type = "response")
 lasso_mse <- mean(RMSE(y_pred, y_test)^2); lasso_mse
 ```
 
-The test MSE for Lasso model (1SE) is 439963234.
+The test MSE for Lasso model (1SE) is `r lasso_mse`.
 
 
 ## Elastic Net model
@@ -89,7 +89,11 @@ enet.fit = train(x_train, y_train,
                  trControl = trainControl(method = "cv", number = 10))
 
 enet.fit$bestTune
+```
 
+The selected tuning parameter lambda = `r enet.fit$bestTune$lambda`, alpha = `r enet.fit$bestTune$alpha`. Then we visualize the elastic net result.
+
+```{r}
 # Visualization
 myCol <- rainbow(25)
 myPar <- list(superpose.symbol = list(col = myCol),
@@ -100,18 +104,40 @@ plot(enet.fit, par.settings = myPar)
 coef(enet.fit$finalModel, enet.fit$bestTune$lambda)
 ```
 
+Next, we calculate the test MSE on our test dataset.
 ```{r}
 # Elastic net test MSE
 enet_pred <- predict(enet.fit, newdata = x_test)
 enet_mse <- mean(RMSE(enet_pred, y_test)^2); enet_mse
 ```
 
-The test error for Elastics net model is `enet_mse`.
+The test error for Elastics net model is `r enet_mse`.
+
 
 ## Partial Least Square model
 ```{r}
+set.seed(2022)
 
+pls.fit <- plsr(sale_price~., 
+                data = train, 
+                scale = TRUE,  
+                validation = "CV")
+
+summary(pls.fit)
+
+validationplot(pls.fit, val.type="MSEP", legendpos = "topright")
 ```
+
+```{r}
+# Calculate the number of component in the model
+cv.mse <- RMSEP(pls.fit)
+ncomp.cv <- which.min(cv.mse$val[1,,]) - 1; ncomp.cv
+
+pls_pred <- predict(pls.fit, newdata = x_test, ncomp = ncomp.cv)
+pls_mse <- mean(RMSE(y_test, pls_pred)^2); pls_mse
+```
+
+There are `r ncomp.cv` component in pls model, and the test error (MSE) is `r pls_mse`.
 
 
 ## Comparing different models
