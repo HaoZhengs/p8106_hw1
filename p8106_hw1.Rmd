@@ -5,7 +5,7 @@ date: "2/20/2022"
 output: pdf_document
 ---
 
-```{r}
+```{r setup, include=FALSE}
 library(tidyverse)
 library(ISLR)
 library(glmnet)
@@ -13,6 +13,7 @@ library(caret)
 library(corrplot)
 library(plotmo)
 library(pls)
+library(doBy)
 ```
 
 ```{r}
@@ -22,8 +23,13 @@ test = read.csv("./data/housing_test.csv") %>% janitor::clean_names()
 
 train = na.omit(train)
 test = na.omit(test)
-```
 
+x_train = model.matrix(sale_price~., train)[,-1]
+y_train = train$sale_price
+
+x_test <- model.matrix(sale_price~., test)[ ,-1]
+y_test <- test$sale_price
+```
 
 Now, let's fit different models based on the dataset.
 
@@ -31,17 +37,18 @@ Now, let's fit different models based on the dataset.
 ```{r}
 set.seed(2022)
 
-fit.lm = lm(sale_price ~ .,
+lm.fit = lm(sale_price ~ .,
             data = train,
             method = "lm",
             trControl = trainControl(method = "repeatedcv", number = 10))
-summary(fit.lm)
+summary(lm.fit)
 
-pred.lm <- predict(fit.lm, newdata = test)
-RMSE(pred.lm, test$sale_price)
+pred.lm <- predict(lm.fit, newdata = test)
+lm_mse = RMSE(pred.lm, test$sale_price); lm_mse
 ```
 
-Potential advantage of the linear model is there may exist correlation which may disturb the model.
+The test MSE for the least square method is `r lm_mse`.
+Potential disadvantage of the linear model: 1. There may be too many predictors, which could cause problems such as corlinearity among predictors, large variance; 2. The model is too complex and there exist over-fitting problems.
 
 
 ## Lasso model
@@ -49,29 +56,24 @@ Potential advantage of the linear model is there may exist correlation which may
 ```{r}
 set.seed(2022)
 
-x_train = model.matrix(sale_price~., train)[,-1]
-y_train = train$sale_price
-
-cv.lasso <- cv.glmnet(
+lasso.fit <- cv.glmnet(
   x = x_train,
   y = y_train,
   alpha = 1,
-  lambda = exp(seq(8, -1, length = 100))
+  lambda = exp(seq(8, 3, length = 100))
 )
 
-plot(cv.lasso)
+plot(lasso.fit)
+plot_glmnet(lasso.fit$glmnet.fit)
 
 # Look at the 1SE coefficient for lasso
-predict(cv.lasso, s = "lambda.min",type = "coefficients")
+predict(lasso.fit, s = "lambda.1se",type = "coefficients")
 ```
 
 When the 1SE rule is applied, we can see there are 35 predictors included in the model.
 
 ```{r}
-x_test <- model.matrix(sale_price~., test)[ ,-1]
-y_test <- test$sale_price
-
-y_pred <- predict(cv.lasso, newx = x_test, s = "lambda.min", type = "response")
+y_pred <- predict(lasso.fit, newx = x_test, s = "lambda.min", type = "response")
 lasso_mse <- mean(RMSE(y_pred, y_test)^2); lasso_mse
 ```
 
@@ -142,6 +144,10 @@ There are `r ncomp.cv` component in pls model, and the test error (MSE) is `r pl
 
 ## Comparing different models
 ```{r}
-
+name <- c("lm", "lasso 1se", "elastic net", "pls")
+MSE <- c(lm_mse, lasso_mse, enet_mse, pls_mse)
+comparison <- cbind(name, MSE)
+comparison <- as.data.frame(comparison)
 ```
 
+Now, let's compare the test MSE of the above 4 models, as we have mentioned before, linear model may have many disadvantages, so here though he test MSE for linear model is the lowest, we may tend to choose other models. Therefore, we may choose the model with the lowest MSE besides the linear model: elastic net model.
