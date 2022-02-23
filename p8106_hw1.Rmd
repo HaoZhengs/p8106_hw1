@@ -148,6 +148,8 @@ name <- c("lm", "lasso 1se", "elastic net", "pls")
 MSE <- c(lm_mse, lasso_mse, enet_mse, pls_mse)
 comparison <- cbind(name, MSE)
 comparison <- as.data.frame(comparison)
+
+comparison
 ```
 
 Now, let's compare the test MSE of the above 4 models, as we have mentioned before, linear model may have many disadvantages, so here though he test MSE for linear model is the lowest, we may tend to choose other models. Therefore, we may choose the model with the lowest MSE besides the linear model: elastic net model.
